@@ -29,10 +29,11 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   memberships    Membership[]
-  ownedProjects  Project[]    @relation("ProjectOwner")
-  assignedTasks  Task[]       @relation("TaskAssignee")
-  createdTasks   Task[]       @relation("TaskCreator")
-  comments       Comment[]    @relation("CommentAuthor")
+  ownedProjects  Project[]         @relation("ProjectOwner")
+  assignedTasks  Task[]            @relation("TaskAssignee")
+  createdTasks   Task[]            @relation("TaskCreator")
+  comments       Comment[]         @relation("CommentAuthor")
+  activityEvents ActivityEvent[]   @relation("ActivityActor")
 
   @@map("users")
 }
@@ -48,6 +49,7 @@ model Project {
   owner       User         @relation("ProjectOwner", fields: [ownerId], references: [id])
   memberships Membership[]
   tasks       Task[]
+  activity    ActivityEvent[]
 
   @@map("projects")
 }
@@ -100,4 +102,22 @@ model Comment {
 
   @@index([taskId, createdAt])
   @@map("comments")
+}
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  taskId    String?  @map("task_id")
+  actorId   String   @map("actor_id")
+  /// e.g. "task_created" | "status_changed" | "assignee_changed" | "comment_added"
+  type      String
+  /// JSON blob — stores before/after values or context depending on event type
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User    @relation("ActivityActor", fields: [actorId], references: [id])
+
+  @@index([projectId, createdAt])
+  @@map("activity_events")
 }

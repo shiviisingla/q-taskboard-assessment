@@ -8,6 +8,7 @@ import { apiFetch, getToken, getStoredUser } from "@/lib/api-client";
 import { Header } from "@/components/Header";
 import { StatusColumn } from "@/components/StatusColumn";
 import { TaskDetail } from "@/components/TaskDetail";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import type { ApiProjectDetail, ApiTask, TaskStatus, Role } from "@/types";
 import { STATUS_ORDER } from "@/types";
 
@@ -212,6 +213,8 @@ export default function ProjectPage({ params }: PageProps) {
                 ))}
               </ul>
             </section>
+
+            <ActivityFeed projectId={id} />
           </>
         )}
       </main>

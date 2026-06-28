@@ -1,3 +1,13 @@
+export type ApiActivity = {
+  id: string;
+  projectId: string;
+  taskId: string | null;
+  type: "task_created" | "status_changed" | "assignee_changed" | "comment_added";
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  actor: ApiUser;
+};
+
 export type ApiComment = {
   id: string;
   taskId: string;

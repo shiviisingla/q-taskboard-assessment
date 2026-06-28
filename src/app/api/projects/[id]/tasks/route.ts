@@ -9,6 +9,7 @@ import {
   canEditTasks,
 } from "@/lib/auth";
 import { createTaskSchema } from "@/schemas/task";
+import { Prisma } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,8 +24,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const q = req.nextUrl.searchParams.get("q");
 
   // FIX: was using $queryRawUnsafe with string interpolation — replaced with
-  // Prisma's type-safe findMany + contains filter. User input is passed as a
-  // parameterized value and never concatenated into SQL.
+  // Prisma's type-safe findMany + contains filter.
   const tasks = await prisma.task.findMany({
     where: {
       projectId,
@@ -63,26 +63,41 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const status = parsed.data.status ?? "todo";
 
-  // place new task at the end of its column
   const last = await prisma.task.findFirst({
     where: { projectId, status },
     orderBy: { position: "desc" },
     select: { position: true },
   });
 
-  const task = await prisma.task.create({
-    data: {
-      projectId,
-      title: parsed.data.title,
-      description: parsed.data.description,
-      status,
-      assigneeId: parsed.data.assigneeId ?? null,
-      createdById: user.id,
-      position: (last?.position ?? -1) + 1,
-    },
-    include: {
-      assignee: { select: { id: true, name: true, email: true } },
-    },
+  // Atomic: task creation + activity event in one transaction.
+  // If the activity write fails, the task creation rolls back.
+  const task = await prisma.$transaction(async (tx) => {
+    const created = await tx.task.create({
+      data: {
+        projectId,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        status,
+        assigneeId: parsed.data.assigneeId ?? null,
+        createdById: user.id,
+        position: (last?.position ?? -1) + 1,
+      },
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    await tx.activityEvent.create({
+      data: {
+        projectId,
+        taskId: created.id,
+        actorId: user.id,
+        type: "task_created",
+        metadata: { title: parsed.data.title, status } as Prisma.InputJsonValue,
+      },
+    });
+
+    return created;
   });
 
   return NextResponse.json({ task }, { status: 201 });

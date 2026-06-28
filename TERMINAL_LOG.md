@@ -350,3 +350,5 @@ dashboard mg: https://drive.google.com/file/d/1RsOp5Tdd96IBXpbBSqw16XvB16nEwVIt/
 part 2: https://drive.google.com/file/d/169MZoSolOK5-t4XB6fA-MrWClD-KgcKH/view?usp=sharing
 
 part 3 a: https://drive.google.com/file/d/1ckSsYN5-CyFaYi47SD1wuvQTvM6aUspg/view?usp=sharing
+
+part 3b: https://drive.google.com/file/d/1ppZU0j-PTadgmldloS3SvK1kTG59Ihi4/view?usp=sharing

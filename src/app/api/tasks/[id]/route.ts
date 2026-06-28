@@ -10,6 +10,8 @@ import {
   canEditTasks,
 } from "@/lib/auth";
 import { updateTaskSchema } from "@/schemas/task";
+import { Prisma } from "@prisma/client";
+import type { ActivityType, ActivityMetadata } from "@/lib/activity";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,18 +25,67 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const parsed = updateTaskSchema.safeParse(body);
   if (!parsed.success) return badRequest("invalid input", parsed.error.flatten());
 
-  const existing = await prisma.task.findUnique({ where: { id } });
+  const existing = await prisma.task.findUnique({
+    where: { id },
+    include: { assignee: { select: { id: true, name: true } } },
+  });
   if (!existing) return notFound("task not found");
 
-  const task = await prisma.task.update({
-    where: { id },
-    data: parsed.data,
-    include: {
-      assignee: { select: { id: true, name: true, email: true } },
-    },
+  // Auth guard
+  const membership = await getProjectMembership(user.id, existing.projectId);
+  if (!membership) return forbidden("you are not a member of this project");
+  if (!canEditTasks(membership.role)) return forbidden("viewers cannot edit tasks");
+
+  // Determine which activity events to emit
+  const events: Array<{ type: ActivityType; metadata: ActivityMetadata }> = [];
+
+  if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+    events.push({
+      type: "status_changed",
+      metadata: { from: existing.status, to: parsed.data.status, title: existing.title },
+    });
+  }
+
+  if (
+    parsed.data.assigneeId !== undefined &&
+    parsed.data.assigneeId !== existing.assigneeId
+  ) {
+    events.push({
+      type: "assignee_changed",
+      metadata: {
+        title: existing.title,
+        fromName: existing.assignee?.name ?? null,
+        toId: parsed.data.assigneeId ?? null,
+      },
+    });
+  }
+
+  // Atomic: task update + all activity events in one transaction
+  const results = await prisma.$transaction(async (tx) => {
+    const task = await tx.task.update({
+      where: { id },
+      data: parsed.data,
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    for (const e of events) {
+      await tx.activityEvent.create({
+        data: {
+          projectId: existing.projectId,
+          taskId: id,
+          actorId: user.id,
+          type: e.type,
+          metadata: e.metadata as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    return task;
   });
 
-  return NextResponse.json({ task });
+  return NextResponse.json({ task: results });
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {

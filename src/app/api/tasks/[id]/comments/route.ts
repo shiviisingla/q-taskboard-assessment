@@ -10,6 +10,7 @@ import {
   getProjectMembership,
   canPostComments,
 } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -78,15 +79,29 @@ export async function POST(req: NextRequest, { params }: Params) {
   const parsed = createCommentSchema.safeParse(body);
   if (!parsed.success) return badRequest("invalid input", parsed.error.flatten());
 
-  const comment = await prisma.comment.create({
-    data: {
-      taskId,
-      authorId: user.id,
-      body: parsed.data.body,
-    },
-    include: {
-      author: { select: { id: true, name: true, email: true } },
-    },
+  const comment = await prisma.$transaction(async (tx) => {
+    const created = await tx.comment.create({
+      data: {
+        taskId,
+        authorId: user.id,
+        body: parsed.data.body,
+      },
+      include: {
+        author: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    await tx.activityEvent.create({
+      data: {
+        projectId: task.projectId,
+        taskId,
+        actorId: user.id,
+        type: "comment_added",
+        metadata: { preview: parsed.data.body.slice(0, 80) } as Prisma.InputJsonValue,
+      },
+    });
+
+    return created;
   });
 
   return NextResponse.json({ comment }, { status: 201 });
