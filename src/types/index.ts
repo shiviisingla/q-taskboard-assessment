@@ -1,3 +1,11 @@
+export type ApiComment = {
+  id: string;
+  taskId: string;
+  body: string;
+  createdAt: string;
+  author: ApiUser;
+};
+
 export type Role = "admin" | "member" | "viewer";
 export type TaskStatus = "todo" | "in_progress" | "review" | "done";
 

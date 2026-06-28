@@ -4,11 +4,11 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, getToken } from "@/lib/api-client";
+import { apiFetch, getToken, getStoredUser } from "@/lib/api-client";
 import { Header } from "@/components/Header";
 import { StatusColumn } from "@/components/StatusColumn";
 import { TaskDetail } from "@/components/TaskDetail";
-import type { ApiProjectDetail, ApiTask, TaskStatus } from "@/types";
+import type { ApiProjectDetail, ApiTask, TaskStatus, Role } from "@/types";
 import { STATUS_ORDER } from "@/types";
 
 type ExportResponse = {
@@ -68,6 +68,12 @@ export default function ProjectPage({ params }: PageProps) {
   });
 
   const project = data?.project;
+
+  // Determine current user's role in this project for auth-aware UI
+  const storedUser = getStoredUser();
+  const currentUserRole: Role =
+    project?.memberships.find((m) => m.user.id === storedUser?.id)?.role ?? "viewer";
+
   const tasksByStatus: Record<TaskStatus, ApiTask[]> = {
     todo: [],
     in_progress: [],
@@ -215,6 +221,7 @@ export default function ProjectPage({ params }: PageProps) {
           task={activeTask}
           projectId={id}
           members={project.memberships}
+          currentUserRole={currentUserRole}
           onClose={() => setActiveTask(null)}
         />
       )}

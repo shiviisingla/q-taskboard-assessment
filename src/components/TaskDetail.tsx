@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
-import type { ApiTask, ApiProjectMember, TaskStatus } from "@/types";
+import type { ApiTask, ApiProjectMember, TaskStatus, Role } from "@/types";
 import { STATUS_LABELS, STATUS_ORDER } from "@/types";
+import { CommentThread } from "./CommentThread";
 
 type Props = {
   task: ApiTask;
   projectId: string;
   members: ApiProjectMember[];
+  currentUserRole: Role;
   onClose: () => void;
 };
 
-export function TaskDetail({ task, projectId, members, onClose }: Props) {
+export function TaskDetail({ task, projectId, members, currentUserRole, onClose }: Props) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
@@ -153,6 +155,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
             </button>
           </div>
         </div>
+
+        <CommentThread taskId={task.id} currentUserRole={currentUserRole} />
       </div>
     </div>
   );

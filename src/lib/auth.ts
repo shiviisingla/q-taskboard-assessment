@@ -55,3 +55,9 @@ export function canEditProject(role: ProjectRole | null | undefined): boolean {
 export function canEditTasks(role: ProjectRole | null | undefined): boolean {
   return role === "admin" || role === "member";
 }
+
+// Comments follow the same rule as task edits: admins and members can post;
+// viewers can only read.
+export function canPostComments(role: ProjectRole | null | undefined): boolean {
+  return role === "admin" || role === "member";
+}
