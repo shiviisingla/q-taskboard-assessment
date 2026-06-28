@@ -11,6 +11,14 @@ import { TaskDetail } from "@/components/TaskDetail";
 import type { ApiProjectDetail, ApiTask, TaskStatus } from "@/types";
 import { STATUS_ORDER } from "@/types";
 
+type ExportResponse = {
+  ok: boolean;
+  exported: number;
+  skipped: number;
+  errors: Array<{ taskId: string; message: string }>;
+  message: string;
+};
+
 type PageProps = { params: Promise<{ id: string }> };
 
 export default function ProjectPage({ params }: PageProps) {
@@ -22,6 +30,7 @@ export default function ProjectPage({ params }: PageProps) {
   const [newTitle, setNewTitle] = useState("");
   const [newColumn, setNewColumn] = useState<TaskStatus>("todo");
   const [error, setError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getToken()) router.replace("/login");
@@ -43,6 +52,19 @@ export default function ProjectPage({ params }: PageProps) {
       queryClient.invalidateQueries({ queryKey: ["project", id] });
     },
     onError: (err) => setError(err instanceof Error ? err.message : "create failed"),
+  });
+
+  const exportTasks = useMutation({
+    mutationFn: () =>
+      apiFetch<ExportResponse>(`/api/projects/${id}/export`, { method: "POST" }),
+    onSuccess: (data) => {
+      setExportStatus(data.message);
+      setTimeout(() => setExportStatus(null), 5000);
+    },
+    onError: (err) =>
+      setExportStatus(
+        `export failed: ${err instanceof Error ? err.message : "unknown error"}`
+      ),
   });
 
   const project = data?.project;
@@ -90,6 +112,26 @@ export default function ProjectPage({ params }: PageProps) {
                 <p className="text-xs text-muted mt-2">
                   owner: {project.owner.name} · {project.memberships.length} members
                 </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={() => exportTasks.mutate()}
+                  disabled={exportTasks.isPending}
+                  className="text-sm px-4 py-2 rounded-md border border-border hover:border-accent disabled:opacity-50 transition"
+                >
+                  {exportTasks.isPending ? "exporting…" : "export to airtable"}
+                </button>
+                {exportStatus && (
+                  <p
+                    className={`text-xs ${
+                      exportStatus.startsWith("export failed")
+                        ? "text-red-400"
+                        : "text-green-400"
+                    }`}
+                  >
+                    {exportStatus}
+                  </p>
+                )}
               </div>
             </div>
 
